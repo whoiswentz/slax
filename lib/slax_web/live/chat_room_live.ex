@@ -1,4 +1,5 @@
 defmodule SlaxWeb.ChatRoomLive do
+  alias Slax.Chat.Message
   use SlaxWeb, :live_view
 
   alias Slax.Chat
@@ -23,9 +24,12 @@ defmodule SlaxWeb.ChatRoomLive do
           Chat.get_first_room!()
       end
 
+    messages = Chat.list_messages_in_room(room)
+
     {:noreply,
      socket
      |> assign(:room, room)
+     |> assign(messages: messages)
      |> assign(page_title: "#" <> room.name)
      |> assign(hide_topic?: false)}
   end
@@ -51,6 +55,22 @@ defmodule SlaxWeb.ChatRoomLive do
         <%= @room.name %>
       </span>
     </.link>
+    """
+  end
+
+  attr :message, Message, required: true
+
+  defp message(assigns) do
+    ~H"""
+    <div class="relative flex px-4 py-3">
+      <div class="h-10 w-10 rounded flex-shrink-0 bg-slate-300"></div>
+      <div class="ml-2">
+        <.link class="text-sm font-semibold hover:underline">
+          <span>User</span>
+        </.link>
+        <p class="text-sm"><%= @message.body %></p>
+      </div>
+    </div>
     """
   end
 
@@ -136,6 +156,9 @@ defmodule SlaxWeb.ChatRoomLive do
             </li>
           <% end %>
         </ul>
+      </div>
+      <div class="flex flex-col flex-grow overflow-auto">
+        <.message :for={message <- @messages} message={message} />
       </div>
     </div>
     """

@@ -12,6 +12,19 @@
 
 alias Slax.Repo
 alias Slax.Chat.Room
+alias Slax.Chat.Message
+alias Slax.Accounts.User
+alias Slax.Accounts
+alias Slax.Chat
 
-Repo.insert!(%Room{name: "the-shire", topic: "Bilbo's birthday party"})
-Repo.insert!(%Room{name: "mordor", topic: "The Dark Lord has returned"})
+{:ok, frodo} = Accounts.register_user(%{email: "frodo@lotr.com", password: "password123456"})
+{:ok, bildo} = Accounts.register_user(%{email: "bildo@lotr.com", password: "password123456"})
+
+{:ok, the_shire} = Chat.create_room(%{name: "the-shire", topic: "Bilbo's birthday party"})
+{:ok, mordor} = Chat.create_room(%{name: "mordor", topic: "The Dark Lord has returned"})
+
+Repo.insert!(%Message{
+  room_id: the_shire.id,
+  user_id: bildo.id,
+  body: "Do not take me for a conjurer of cheap tricks!"
+})
