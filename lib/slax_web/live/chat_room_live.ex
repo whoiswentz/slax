@@ -30,12 +30,36 @@ defmodule SlaxWeb.ChatRoomLive do
      socket
      |> assign(:room, room)
      |> assign(messages: messages)
+     |> assign(new_message_form: to_form(Chat.change_message(%Message{})))
      |> assign(page_title: "#" <> room.name)
      |> assign(hide_topic?: false)}
   end
 
   def handle_event("toggle-topic", _params, socket) do
     {:noreply, update(socket, :hide_topic?, &(!&1))}
+  end
+
+  def handle_event("validate-message", %{"message" => message_params}, socket) do
+    changeset = Chat.change_message(%Message{}, message_params)
+
+    {:noreply, assign(socket, new_message_form: to_form(changeset))}
+  end
+
+  def handle_event("submit-message", %{"message" => message_params}, socket) do
+    %{current_user: current_user, room: room} = socket.assigns
+
+    socket =
+      case Chat.create_message(room, message_params, current_user) do
+        {:ok, message} ->
+          socket
+          |> update(:messages, &(&1 ++ [message]))
+          |> assign(new_message_form: to_form(Chat.change_message(%Message{})))
+
+        {:error, changeset} ->
+          assign(socket, new_message_form: to_form(changeset))
+      end
+
+    {:noreply, socket}
   end
 
   defp username(user) do
@@ -163,6 +187,30 @@ defmodule SlaxWeb.ChatRoomLive do
       </div>
       <div class="flex flex-col flex-grow overflow-auto">
         <.message :for={message <- @messages} message={message} />
+      </div>
+      <div class="h-12 bg-white px-4 pb-4">
+        <.form
+          class="flex items-center border-2 border-slate-300 rounded-sm p-1"
+          id="new_message_form"
+          for={@new_message_form}
+          phx-change="validate-message"
+          phx-submit="submit-message"
+        >
+          <textarea
+            class="flex-grow text-sm px-3 border-l border-slate-300 mx-1 resize-none"
+            cols=""
+            id="chat-message-textarea"
+            name={@new_message_form[:body].name}
+            placeholder={"Message ##{@room.name}"}
+            phx-debounce
+            rows="1"
+          >
+          <%= Phoenix.HTML.Form.normalize_value("textarea", @new_message_form[:body].value) %>
+          </textarea>
+          <button class="flex-shrink flex items-center justify-center h-6 w-6 rounded hover:bg-slate-200">
+            <.icon name="hero-paper-airplane" class="h-4 w-4" />
+          </button>
+        </.form>
       </div>
     </div>
     """
