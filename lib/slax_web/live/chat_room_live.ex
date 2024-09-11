@@ -97,6 +97,7 @@ defmodule SlaxWeb.ChatRoomLive do
         <.link class="text-sm font-semibold hover:underline">
           <span><%= username(@message.user) %></span>
         </.link>
+        <span class="ml-1 text-xs text-gray-500"><%= message_timestamp(@message) %></span>
         <p class="text-sm"><%= @message.body %></p>
       </div>
     </div>
@@ -215,5 +216,10 @@ defmodule SlaxWeb.ChatRoomLive do
       </div>
     </div>
     """
+  end
+
+  defp message_timestamp(message) do
+    message.inserted_at
+    |> Timex.format!("%-l:%M %p", :strftime)
   end
 end
