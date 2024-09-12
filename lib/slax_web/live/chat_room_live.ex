@@ -1,9 +1,10 @@
 defmodule SlaxWeb.ChatRoomLive do
-  alias Slax.Chat.Message
   use SlaxWeb, :live_view
 
   alias Slax.Chat
   alias Slax.Chat.Room
+  alias Slax.Accounts.User
+  alias Slax.Chat.Message
 
   def mount(_params, _session, socket) do
     rooms = Chat.list_rooms()
@@ -46,6 +47,12 @@ defmodule SlaxWeb.ChatRoomLive do
     changeset = Chat.change_message(%Message{}, message_params)
 
     {:noreply, assign(socket, new_message_form: to_form(changeset))}
+  end
+
+  def handle_event("delete-message", %{"id" => id}, socket) do
+    {:ok, message} = Chat.delete_message_by_id(id, socket.assigns.current_user)
+
+    {:noreply, stream_delete(socket, :messages, message)}
   end
 
   def handle_event("submit-message", %{"message" => message_params}, socket) do
@@ -92,10 +99,20 @@ defmodule SlaxWeb.ChatRoomLive do
   attr :message, Message, required: true
   attr :dom_id, :string, required: true
   attr :timezone, :string, required: true
+  attr :current_user, User, required: true
 
   defp message(assigns) do
     ~H"""
     <div id={@dom_id} class="relative flex px-4 py-3">
+      <button
+        :if={@current_user.id == @message.user_id}
+        data-confirm="Are you sure?"
+        phx-click="delete-message"
+        phx-value-id={@message.id}
+        class="absolute top-4 right-4 text-red-500 hover:text-red-800 cursor-pointer"
+      >
+        <.icon name="hero-trash" class="h-4 w-4" />
+      </button>
       <div class="h-10 w-10 rounded flex-shrink-0 bg-slate-300"></div>
       <div class="ml-2">
         <.link class="text-sm font-semibold hover:underline">
@@ -197,6 +214,7 @@ defmodule SlaxWeb.ChatRoomLive do
         <.message
           :for={{dom_id, message} <- @streams.messages}
           dom_id={dom_id}
+          current_user={@current_user}
           message={message}
           timezone={@timezone}
         />
