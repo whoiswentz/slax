@@ -40,7 +40,8 @@ defmodule SlaxWeb.ChatRoomLive do
      |> assign(new_message_form: to_form(Chat.change_message(%Message{})))
      |> assign(page_title: "#" <> room.name)
      |> assign(hide_topic?: false)
-     |> stream(:messages, messages, reset: true)}
+     |> stream(:messages, messages, reset: true)
+     |> push_event("scroll_messages_to_bottom", %{})}
   end
 
   def handle_event("toggle-topic", _params, socket) do
@@ -74,7 +75,12 @@ defmodule SlaxWeb.ChatRoomLive do
   end
 
   def handle_info({:new_message, message}, socket) do
-    {:noreply, stream_insert(socket, :messages, message)}
+    socket =
+      socket
+      |> stream_insert(:messages, message)
+      |> push_event("scroll_messages_to_bottom", %{})
+
+    {:noreply, socket}
   end
 
   def handle_info({:message_deleted, message}, socket) do
@@ -222,7 +228,12 @@ defmodule SlaxWeb.ChatRoomLive do
           <% end %>
         </ul>
       </div>
-      <div id="room-messages" class="flex flex-col flex-grow overflow-auto" phx-update="stream">
+      <div
+        id="room-messages"
+        class="flex flex-col flex-grow overflow-auto"
+        phx-hook="RoomMessages"
+        phx-update="stream"
+      >
         <.message
           :for={{dom_id, message} <- @streams.messages}
           dom_id={dom_id}
@@ -234,7 +245,7 @@ defmodule SlaxWeb.ChatRoomLive do
       <div class="h-12 bg-white px-4 pb-4">
         <.form
           class="flex items-center border-2 border-slate-300 rounded-sm p-1"
-          id="new_message_form"
+          id="new-message-form"
           for={@new_message_form}
           phx-change="validate-message"
           phx-submit="submit-message"
@@ -246,6 +257,7 @@ defmodule SlaxWeb.ChatRoomLive do
             name={@new_message_form[:body].name}
             placeholder={"Message ##{@room.name}"}
             phx-debounce
+            phx-hook="ChatMessageTextArea"
             rows="1"
           >
           <%= Phoenix.HTML.Form.normalize_value("textarea", @new_message_form[:body].value) %>
