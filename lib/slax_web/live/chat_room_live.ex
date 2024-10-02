@@ -1,4 +1,5 @@
 defmodule SlaxWeb.ChatRoomLive do
+  alias SlaxWeb.TypingUsers
   alias SlaxWeb.OnlineUsers
   alias Slax.Accounts
   use SlaxWeb, :live_view
@@ -18,12 +19,14 @@ defmodule SlaxWeb.ChatRoomLive do
     end
 
     OnlineUsers.subscribe()
+    TypingUsers.subscribe()
 
     {:ok,
      socket
      |> assign(:rooms, rooms)
      |> assign(timezone: timezone)
      |> assign(users: users)
+     |> assign(typing: false)
      |> assign(online_users: OnlineUsers.list())
      |> assign(hide_topic?: false)}
   end
@@ -84,6 +87,21 @@ defmodule SlaxWeb.ChatRoomLive do
     {:noreply, socket}
   end
 
+  def handle_event("user_typing", _params, socket) do
+    user_id = socket.assigns.current_user.id
+
+    if not TypingUsers.is_tracked(user_id) do
+      TypingUsers.track(self(), socket.assigns.current_user)
+    end
+
+    {:noreply, socket}
+  end
+
+  def handle_event("user_stop_typing", _params, socket) do
+    TypingUsers.untrack(self(), socket.assigns.current_user)
+    {:noreply, socket}
+  end
+
   def handle_info({:new_message, message}, socket) do
     socket =
       socket
@@ -97,9 +115,14 @@ defmodule SlaxWeb.ChatRoomLive do
     {:noreply, stream_delete(socket, :messages, message)}
   end
 
-  def handle_info(%{event: "presence_diff", payload: diff}, socket) do
+  def handle_info(%{event: "presence_diff", topic: "online_users", payload: diff}, socket) do
     online_users = OnlineUsers.update(socket.assigns.online_users, diff)
     {:noreply, assign(socket, online_users: online_users)}
+  end
+
+  def handle_info(%{event: "presence_diff", topic: "typing_users", payload: diff}, socket) do
+    typing = TypingUsers.someone_is_typing?(diff)
+    {:noreply, assign(socket, typing: typing)}
   end
 
   defp username(user) do
@@ -122,7 +145,10 @@ defmodule SlaxWeb.ChatRoomLive do
       patch={~p"/rooms/#{@room}"}
     >
       <.icon name="hero-hashtag" class="h-4 w-4" />
-      <span class={["ml-2 leading-none", @active && "font-bold"]}>
+      <span class={[
+        "ml-2 leading-none",
+        @active && "font-bold"
+      ]}>
         <%= @room.name %>
       </span>
     </.link>
@@ -289,7 +315,13 @@ defmodule SlaxWeb.ChatRoomLive do
           timezone={@timezone}
         />
       </div>
-      <div class="h-12 bg-white px-4 pb-4">
+      <div class="h-24 bg-white px-4 pb-4">
+        <div
+          :if={@typing}
+          class="flex-grow overflow-auto text-sm px-3 border-l border-slate-300 mx-1 resize-none"
+        >
+          <span>Someone is typing...</span>
+        </div>
         <.form
           class="flex items-center border-2 border-slate-300 rounded-sm p-1"
           id="new-message-form"
