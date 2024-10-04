@@ -4,13 +4,24 @@ defmodule SlaxWeb.ChatRoomLive.Edit do
 
   def mount(%{"id" => id}, _session, socket) do
     room = Chat.get_room!(id)
-    changeset = Chat.change_room(room)
 
-    {:ok,
-     socket
-     |> assign(room: room)
-     |> assign(page_title: "Edit chat room")
-     |> assign(form: to_form(changeset))}
+    current_user = socket.assigns.current_user
+
+    socket =
+      if Chat.joined?(room, current_user) do
+        changeset = Chat.change_room(room)
+
+        socket
+        |> assign(room: room)
+        |> assign(page_title: "Edit chat room")
+        |> assign(form: to_form(changeset))
+      else
+        socket
+        |> put_flash(:error, "Permission Denined")
+        |> push_navigate(to: ~p"/")
+      end
+
+    {:ok, socket}
   end
 
   def handle_event("validate-room", %{"room" => room_params}, socket) do
