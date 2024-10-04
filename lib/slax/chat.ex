@@ -51,6 +51,22 @@ defmodule Slax.Chat do
     |> Repo.all()
   end
 
+  def toggle_room_membership(%Room{} = room, %User{} = user) do
+    case get_room_membership(room, user) do
+      %RoomMembership{} = room_membership ->
+        Repo.delete(room_membership)
+        {room, false}
+
+      nil ->
+        join_room!(room, user)
+        {room, true}
+    end
+  end
+
+  def get_room_membership(%Room{id: room_id}, %User{id: user_id}) do
+    Repo.get_by(RoomMembership, room_id: room_id, user_id: user_id)
+  end
+
   def joined?(%Room{} = room, %User{} = user) do
     from(rm in RoomMembership)
     |> where([rm], rm.room_id == ^room.id)
