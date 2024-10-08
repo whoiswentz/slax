@@ -43,10 +43,15 @@ defmodule SlaxWeb.ChatRoomLive do
           Chat.get_first_room!()
       end
 
-    messages = Chat.list_messages_in_room(room)
     joined = Chat.joined?(room, socket.assigns.current_user)
+    last_read_id = Chat.get_last_read_id(room, socket.assigns.current_user)
 
     Chat.subscribe_to_room(room)
+
+    messages =
+      room
+      |> Chat.list_messages_in_room()
+      |> maybe_insert_unread_marker(last_read_id)
 
     {:noreply,
      socket
@@ -151,6 +156,18 @@ defmodule SlaxWeb.ChatRoomLive do
     |> String.split("@")
     |> List.first()
     |> String.capitalize()
+  end
+
+  defp maybe_insert_unread_marker(messages, nil), do: messages
+
+  defp maybe_insert_unread_marker(messages, last_read_id) do
+    {read, unread} = Enum.split(messages, &(&1.id <= last_read_id))
+
+    if unread == [] do
+      read
+    else
+      read ++ [:unread_marker | unread]
+    end
   end
 
   attr :active, :boolean, required: true
